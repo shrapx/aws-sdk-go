@@ -362,6 +362,14 @@ func (d *Decoder) decodeNumber(n *string, v reflect.Value, fieldTag tag) error {
 			v.Set(reflect.ValueOf(t).Convert(v.Type()))
 			return nil
 		}
+		if v.Type().ConvertibleTo(timeType) && fieldTag.AsUnixTimeMillis {
+			t, err := decodeUnixTimeMillis(*n)
+			if err != nil {
+				return err
+			}
+			v.Set(reflect.ValueOf(t).Convert(v.Type()))
+			return nil
+		}
 		return &UnmarshalTypeError{Value: "number", Type: v.Type()}
 	}
 
