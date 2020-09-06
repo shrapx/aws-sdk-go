@@ -50,6 +50,47 @@ func (e *UnixTime) UnmarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) 
 	return nil
 }
 
+// An UnixTimeMillis provides aliasing of time.Time into a type that when marshaled
+// and unmarshaled with DynamoDB AttributeValues it will be done so as number
+// instead of string in milliseconds since January 1, 1970 UTC.
+//
+// This type is useful as an alternative to the struct tag `unixtimemillis` when you
+// want to have your time value marshaled as Unix time in milliseconds instead of
+// the default time.RFC3339.
+//
+// Important to note that zero value time as unixtimemillis is not 0 milliseconds
+// from January 1, 1970 UTC, but -62135596800000. Which is milliseconds between
+// January 1, 0001 UTC, and January 1, 0001 UTC.
+type UnixTimeMillis time.Time
+
+// MarshalDynamoDBAttributeValue implements the Marshaler interface so that
+// the UnixTimeMillis can be marshaled from to a DynamoDB AttributeValue number
+// value encoded in the number of milliseconds since January 1, 1970 UTC.
+func (e UnixTimeMillis) MarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
+	t := time.Time(e)
+	s := strconv.FormatInt(t.UnixNano() / 1000000, 10)
+	av.N = &s
+
+	return nil
+}
+
+// UnmarshalDynamoDBAttributeValue implements the Unmarshaler interface so that
+// the UnixTimeMillis can be unmarshaled from a DynamoDB AttributeValue number representing
+// the number of milliseconds since January 1, 1970 UTC.
+//
+// If an error parsing the AttributeValue number occurs UnmarshalError will be
+// returned.
+func (e *UnixTimeMillis) UnmarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
+
+	t, err := decodeUnixTimeMillis(aws.StringValue(av.N))
+	if err != nil {
+		return err
+	}
+
+	*e = UnixTimeMillis(t)
+	return nil
+}
+
 // A Marshaler is an interface to provide custom marshaling of Go value types
 // to AttributeValues. Use this to provide custom logic determining how a
 // Go Value type should be marshaled.
@@ -292,6 +333,9 @@ func (e *Encoder) encodeStruct(av *dynamodb.AttributeValue, v reflect.Value, fie
 		t = v.Convert(timeType).Interface().(time.Time)
 		if fieldTag.AsUnixTime {
 			return UnixTime(t).MarshalDynamoDBAttributeValue(av)
+		}
+		if fieldTag.AsUnixTimeMillis {
+			return UnixTimeMillis(t).MarshalDynamoDBAttributeValue(av)
 		}
 		s := t.Format(time.RFC3339Nano)
 		av.S = &s
