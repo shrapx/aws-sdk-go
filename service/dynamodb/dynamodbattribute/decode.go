@@ -627,7 +627,7 @@ func decodeUnixTimeMillis(n string) (time.Time, error) {
 		}
 	}
 
-	return time.Unix(0, v * 1000000), nil
+	return time.Unix(0, v * 1000000).UTC(), nil
 }
 
 // decoderFieldByIndex finds the field with the provided nested index, allocating
